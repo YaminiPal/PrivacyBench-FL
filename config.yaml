@@ -1,0 +1,63 @@
+seed: 42
+device: "cpu"
+
+data:
+  raw_path: "data/raw/adult.csv"
+  client_dir: "data/clients"
+  split_mode: "temporal"   # iid | non_iid | temporal
+  num_clients: 3
+  force_repartition: true
+
+# Computed automatically after preprocessing
+input_dim: 108
+num_classes: 2
+
+rounds: 10
+client_fraction: 1.0
+selection_strategy: "privacy_aware"  # random | utility_proportional | privacy_aware
+
+local_epochs: 2
+lr: 0.05
+lambda_reg: 0.0001
+
+dp:
+  enabled: true
+  noise_multiplier: 1.2
+  clip_norm: 1.0
+  delta: 1e-5
+  max_epsilon: 8.0
+
+quantization:
+  enabled: true
+  bits: 8
+
+drift:
+  enabled: true
+  trigger_round: 4
+  mode: "covariate_shift"
+  severity: 0.35
+
+training:
+  batch_size: 32
+  optimizer: "sgd"
+  momentum: 0.9
+  weight_decay: 0.0001
+
+model:
+  mlp_hidden_dims: [64, 32]
+  dropout: 0.3
+  use_groupnorm: true
+  groupnorm_groups: 4
+
+early_stopping:
+  patience: 5
+  min_delta: 0.0001
+  target_accuracy: 0.92
+
+logging:
+  save_checkpoints: true
+  checkpoint_dir: "checkpoints"
+  save_results: true
+
+experiment:
+  compare_models: ["lr", "mlp"]
