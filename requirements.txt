@@ -1,0 +1,41 @@
+# =========================
+# Core ML & Data Stack
+# =========================
+numpy
+pandas
+scikit-learn
+scipy
+
+# =========================
+# Deep Learning (MLP)
+# =========================
+torch
+torchvision
+
+# =========================
+# Differential Privacy
+# =========================
+opacus
+
+# =========================
+# Visualization
+# =========================
+matplotlib
+seaborn
+plotly
+
+# =========================
+# Dashboard (Frontend)
+# =========================
+streamlit
+
+# =========================
+# Experiment Management
+# =========================
+pyyaml
+tqdm
+
+# =========================
+# Utilities
+# =========================
+joblib
