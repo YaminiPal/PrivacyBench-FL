@@ -1,0 +1,25 @@
+{
+    "target": "income",
+    "num_features": [
+        "age",
+        "fnlwgt",
+        "education-num",
+        "capital-gain",
+        "capital-loss",
+        "hours-per-week"
+    ],
+    "cat_features": [
+        "workclass",
+        "education",
+        "marital-status",
+        "occupation",
+        "relationship",
+        "race",
+        "sex",
+        "native-country"
+    ],
+    "leakage_features": [
+        "fnlwgt"
+    ],
+    "num_samples": 32561
+}
