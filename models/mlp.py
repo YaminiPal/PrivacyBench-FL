@@ -10,7 +10,8 @@ class FederatedMLP(nn.Module):
         output_dim=2,
         dropout_rate=0.2,
         use_normalization=True,
-        num_groups=4
+        num_groups=4,
+        personalized_head=False,
     ):
         """
         DP-SGD compatible Federated MLP optimized for:
@@ -47,6 +48,7 @@ class FederatedMLP(nn.Module):
 
         layers.append(nn.Linear(current_dim, output_dim))
         self.network = nn.Sequential(*layers)
+        self.personalized_head = personalized_head
 
         self._initialize_weights()
 
@@ -101,3 +103,12 @@ class FederatedMLP(nn.Module):
             probs = torch.softmax(logits, dim=1)
 
         return probs
+
+    def personalized_parameter_keys(self):
+        """Keep only the classifier head local for personalized FL."""
+        if not self.personalized_head:
+            return []
+        for name, module in reversed(list(self.network.named_children())):
+            if isinstance(module, nn.Linear):
+                return [f"network.{name}.weight", f"network.{name}.bias"]
+        return []

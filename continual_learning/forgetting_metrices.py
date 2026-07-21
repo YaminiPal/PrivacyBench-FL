@@ -12,7 +12,7 @@ class FederatedForgettingAnalyticEngine:
     # ========================================================
     # RECORDING
     # ========================================================
-    def record_eval_snapshot(self, round_scores: list):
+    def record_eval_snapshot(self, round_scores: list, task=None):
         """
         round_scores: performance on all known distributions/tasks at a given round
         """
@@ -29,7 +29,10 @@ class FederatedForgettingAnalyticEngine:
         if len(self.performance_matrix) < 2:
             return 0.0
 
-        timeline = np.array([row[task_idx] for row in self.performance_matrix])
+        timeline = np.array([row[task_idx] for row in self.performance_matrix if len(row) > task_idx])
+        timeline = timeline[np.isfinite(timeline)]
+        if len(timeline) < 2:
+            return 0.0
 
         peak = np.max(timeline)
         current = timeline[-1]
@@ -61,8 +64,9 @@ class FederatedForgettingAnalyticEngine:
 
         for t in range(1, T):
             for k in range(min(t, K)):
-                bwt_sum += (R[t][k] - R[k][k])
-                count += 1
+                if np.isfinite(R[t][k]) and np.isfinite(R[k][k]):
+                    bwt_sum += (R[t][k] - R[k][k])
+                    count += 1
 
         return float(bwt_sum / count) if count > 0 else 0.0
 

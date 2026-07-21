@@ -8,6 +8,7 @@ import numpy as np
 
 from utils.logger import logger
 from utils.helpers import set_seed, verify_config_keys
+from utils.output_management import clear_previous_run_outputs
 
 from preprocessing.data_pipeline import prepare_federated_data
 
@@ -51,6 +52,7 @@ def build_model(model_type, input_dim, num_classes, config):
             dropout_rate=mlp_cfg.get("dropout", 0.3),
             use_normalization=mlp_cfg.get("use_groupnorm", True),
             num_groups=mlp_cfg.get("groupnorm_groups", 4),
+            personalized_head=config.get("personalization", {}).get("enabled", False),
         )
     raise ValueError(f"Unknown model type: {model_type}")
 
@@ -92,7 +94,8 @@ def run_model_experiment(model_type, config, data_bundle, device):
     )
 
     privacy_accountant = FederatedPrivacyAccountant(
-        target_delta=dp_cfg.get("delta", 1e-5)
+        target_delta=dp_cfg.get("delta", 1e-5),
+        client_budgets=config.get("privacy_budgets", {}),
     )
 
     drift_cfg = config.get("drift", {})
@@ -119,6 +122,11 @@ def run_model_experiment(model_type, config, data_bundle, device):
         dp_config=dp_cfg,
         forgetting_engine=forgetting_engine,
         temporal_loaders=data_bundle.get("temporal_loaders"),
+        temporal_train_loaders=data_bundle.get("temporal_train_loaders"),
+        aggregation_config=config.get("aggregation", {}),
+        personalization_config=config.get("personalization", {}),
+        drift_detection_config=config.get("drift_detection", {}),
+        quantization_config=quant_cfg,
         device=device,
     )
 
@@ -145,6 +153,7 @@ def main():
     verify_config_keys(config, ["seed", "rounds", "dp", "num_classes", "data"])
 
     set_seed(config["seed"])
+    clear_previous_run_outputs(config)
     device = "cuda" if torch.cuda.is_available() and config.get("device") == "cuda" else "cpu"
     logger.info(f"Device: {device}")
 
@@ -177,7 +186,8 @@ def main():
                 "accuracy": hist["accuracy"][i],
                 "loss": hist["loss"][i],
                 "epsilon": hist["epsilon"][i],
-                "traffic_mb": hist["total_traffic_mb"][i],
+        "traffic_mb": hist["total_traffic_mb"][i],
+                "quantization_bits": hist.get("quantization_bits", [None] * len(hist["round"]))[i],
             })
     pd.DataFrame(flat_rows).to_csv("experiments/training_history.csv", index=False)
 

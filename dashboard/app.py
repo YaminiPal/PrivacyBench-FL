@@ -22,6 +22,20 @@ def load_benchmark_payload(file_path="experiments/full_system_results.npy"):
         return None
     return np.load(file_path, allow_pickle=True).item()
 
+
+def metric_value(history, index, default=0.0):
+    """Safely read an uneven history produced by early stopping or old runs."""
+    if not history:
+        return default
+    return history[min(index, len(history) - 1)]
+
+
+def aligned_history(model_data, key, default=0.0):
+    """Return a series aligned to completed rounds for resilient dashboard plots."""
+    rounds = model_data.get("round", [])
+    values = model_data.get(key, [])
+    return [metric_value(values, index, default) for index in range(len(rounds))]
+
 # Instantiate the structured data load pass
 results = load_benchmark_payload()
 
@@ -61,9 +75,10 @@ else:
     
     for idx, model_name in enumerate(selected_models):
         model_data = results[model_name]
-        peak_accuracy = max(model_data["accuracy"]) * 100
-        final_epsilon = model_data["epsilon"][-1]
-        cumulative_wire_mb = model_data.get("total_traffic_mb", model_data.get("traffic", [0]))[-1]
+        peak_accuracy = max(model_data.get("accuracy", [0])) * 100
+        final_epsilon = metric_value(model_data.get("epsilon", []), -1)
+        traffic_history = model_data.get("total_traffic_mb") or model_data.get("traffic", [])
+        cumulative_wire_mb = metric_value(traffic_history, -1)
         
         with columns_layout[idx]:
             pd_stream.metric(
@@ -113,7 +128,7 @@ else:
         for model_name in selected_models:
             ax.plot(
                 results[model_name]["round"], 
-                results[model_name]["epsilon"], 
+                aligned_history(results[model_name], "epsilon"),
                 marker='s', linestyle='--', label=f"{model_name.upper()} Privacy Spent", linewidth=2
             )
         ax.set_xlabel("Global Communication Handshake Rounds", fontweight="bold")
@@ -136,7 +151,7 @@ else:
         
         labels = [m.upper() for m in selected_models]
         traffic_values = [
-            results[m].get("total_traffic_mb", results[m].get("traffic", [0]))[-1]
+            metric_value(results[m].get("total_traffic_mb") or results[m].get("traffic", []), -1)
             for m in selected_models
         ]
         
@@ -170,7 +185,9 @@ else:
                     "Objective Loss": round(m_data["loss"][r_idx], 4),
                     "Epsilon Budget (ε)": round(m_data["epsilon"][r_idx], 3),
                     "Wire Footprint (MB)": round(
-                        model_data.get("total_traffic_mb", model_data.get("traffic", [0]))[r_idx], 2
+                        metric_value(
+                            m_data.get("total_traffic_mb") or m_data.get("traffic", []), r_idx
+                        ), 2
                     ),
                 })
         
@@ -192,8 +209,8 @@ else:
             m_data = results[model_name]
             rounds = m_data.get("round", [])
             # Visualize the T1 (initial state) vs T3 (drifted state) accuracy gap
-            t1 = [v * 100 for v in m_data.get("forgetting_T1", [0]*len(rounds))]
-            t3 = [v * 100 for v in m_data.get("forgetting_T3", [0]*len(rounds))]
+            t1 = [metric_value(m_data.get("forgetting_T1", []), i, float("nan")) * 100 for i in range(len(rounds))]
+            t3 = [metric_value(m_data.get("forgetting_T3", []), i, float("nan")) * 100 for i in range(len(rounds))]
             
             ax.plot(rounds, t1, marker="o", linestyle=":", label=f"{model_name.upper()} Original T1")
             ax.plot(rounds, t3, marker="s", label=f"{model_name.upper()} Drifted T3")

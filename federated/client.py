@@ -16,6 +16,10 @@ class FLClient:
             return self.model._module
         return self.model
 
+    def _personalized_keys(self):
+        model = self._base_model()
+        return set(model.personalized_parameter_keys()) if hasattr(model, "personalized_parameter_keys") else set()
+
     def train(
         self,
         train_loader,
@@ -68,9 +72,10 @@ class FLClient:
         base.load_state_dict(trained_state)
         self.model = base
 
+        personalized_keys = self._personalized_keys()
         self.last_update = {
             k: trained_state[k].detach().cpu() - initial_state[k]
-            for k in initial_state
+            for k in initial_state if k not in personalized_keys
         }
 
         if clipper is not None:
@@ -84,7 +89,12 @@ class FLClient:
         return torch.sqrt(torch.tensor(total_sq)).item()
 
     def set_parameters(self, global_state_dict):
-        self._base_model().load_state_dict(global_state_dict)
+        model = self._base_model()
+        local_state = model.state_dict()
+        for key, value in global_state_dict.items():
+            if key not in self._personalized_keys():
+                local_state[key] = value.detach().clone()
+        model.load_state_dict(local_state)
 
     def serialize_update(self, quantizer=None, comm_channel=None):
         if self.last_update is None:

@@ -17,6 +17,14 @@ class QuantizationEngine:
         self.qmin = -(2 ** (bits - 1))
         self.qmax = (2 ** (bits - 1)) - 1
 
+    def set_bits(self, bits):
+        """Reconfigure a channel without replacing its telemetry counters."""
+        if bits not in [4, 8, 16]:
+            raise ValueError("Quantization currently only supports 4, 8, or 16 bits.")
+        self.bits = bits
+        self.qmin = -(2 ** (bits - 1))
+        self.qmax = (2 ** (bits - 1)) - 1
+
     # ============================
     # COMPRESS (FLOAT32 -> INT8)
     # ============================

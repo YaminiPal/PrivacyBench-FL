@@ -30,9 +30,31 @@ dp:
 quantization:
   enabled: true
   bits: 8
+  adaptive: true
+  early_rounds: 2
+  early_bits: 16
+  late_bits: 4
+
+aggregation:
+  strategy: "similarity_aware"  # fedavg | similarity_aware
+  similarity_floor: 0.05
+
+personalization:
+  enabled: true                 # MLP shares encoder; each client keeps its classifier head
+
+privacy_budgets:
+  client_0: 1.0
+  client_1: 2.0
+  client_2: 3.0
+
+drift_detection:
+  enabled: true
+  z_threshold: 2.5
+  lr_multiplier: 0.5
+  extra_local_epochs: 1
 
 drift:
-  enabled: true
+  enabled: false                # use only for controlled simulation experiments
   trigger_round: 4
   mode: "covariate_shift"
   severity: 0.35
@@ -55,6 +77,7 @@ early_stopping:
   target_accuracy: 0.92
 
 logging:
+  clear_previous_outputs: true
   save_checkpoints: true
   checkpoint_dir: "checkpoints"
   save_results: true
