@@ -84,6 +84,14 @@ def _make_loader(X: np.ndarray, y: np.ndarray, batch_size: int, shuffle: bool = 
     return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 
 
+def _split_temporal_holdout(X, y, seed):
+    """Create disjoint train/evaluation data for one chronological task."""
+    if len(X) < 4:
+        return X, y, X, y
+    stratify = y if len(np.unique(y)) > 1 and min(np.bincount(y)) >= 2 else None
+    return train_test_split(X, y, test_size=0.2, random_state=seed, stratify=stratify)
+
+
 def prepare_federated_data(
     config: dict,
     force_repartition: bool = False,
@@ -133,6 +141,7 @@ def prepare_federated_data(
     train_loaders = {}
     val_loaders = {}
     temporal_loaders = {}
+    temporal_train_loaders = {}
     preprocessors = {}
 
     for cid, shard_df in client_shards.items():
@@ -166,13 +175,23 @@ def prepare_federated_data(
         if split_mode == "temporal":
             chunks = _encode_temporal_chunks(shard_df, target_col)
             temporal_loaders[cid] = {}
+            temporal_train_loaders[cid] = {}
             for period, chunk_df in chunks.items():
                 if len(chunk_df) == 0:
                     continue
                 X_chunk, y_chunk = prep.transform(chunk_df)
-                temporal_loaders[cid][period] = _make_loader(
-                    X_chunk, y_chunk, batch_size, shuffle=False
+                X_task_train, X_task_val, y_task_train, y_task_val = _split_temporal_holdout(
+                    X_chunk, y_chunk, seed + len(period)
                 )
+                temporal_train_loaders[cid][period] = _make_loader(
+                    X_task_train, y_task_train, batch_size, shuffle=True
+                )
+                temporal_loaders[cid][period] = _make_loader(
+                    X_task_val, y_task_val, batch_size, shuffle=False
+                )
+            # Continual learning begins with T1 and moves through T2/T3 in trainer.
+            if temporal_train_loaders[cid].get("T1") is not None:
+                train_loaders[cid] = temporal_train_loaders[cid]["T1"]
 
     dims = {cid: train_loaders[cid].dataset[0][0].shape[0] for cid in train_loaders}
     if len(set(dims.values())) > 1:
@@ -184,6 +203,7 @@ def prepare_federated_data(
         "train_loaders": train_loaders,
         "val_loaders": val_loaders,
         "temporal_loaders": temporal_loaders,
+        "temporal_train_loaders": temporal_train_loaders,
         "preprocessors": preprocessors,
         "schema": schema,
         "target_col": target_col,
